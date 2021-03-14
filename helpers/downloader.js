@@ -3,17 +3,29 @@ const https = require('https');
 const http = require('http');
 const fs = require('fs');
 const url = require('url');
+const genNotClashingFileName = require('./utils/getNotClashingFname');
 
-function download({ url, filePath, fileName }) {
+module.exports.download = function download({ url, pathToFile, fileName }) {
 	return new Promise((resolve, reject) => {
 		const downloadURL = new URL(url);
-		const extension = '.' + path.basename(url).split('.')[1];
+		// Figuring out the extension
+		let extension = null;
+		extension = path.basename(url).split('.')[1];
+		if (!extension) return reject('Invalid URL. URL must have file extension');
+		// Creating directory if it does not exist
+		if (!fs.existsSync(pathToFile)) fs.mkdirSync(pathToFile);
+		if (!fs.existsSync(pathToFile))
+			throw 'Can only create 1 directory. Not more than one. Please do not provide path to file where more than 1 directory needs to be created';
+		//Finding out what protocol to use
 		const reqProtocol = 'https:' === downloadURL.protocol ? https : http;
 
-		const req = reqProtocol.get(downloadURL.href, (res) => {
-			const fileStream = fs.createWriteStream(
-				path.resolve(filePath, fileName + extension)
+		const req = reqProtocol.get(downloadURL.href, async (res) => {
+			const fullPath = await genNotClashingFileName(
+				pathToFile,
+				fileName,
+				'.' + extension
 			);
+			const fileStream = fs.createWriteStream(fullPath);
 			res.pipe(fileStream);
 
 			// Handle Stream Error
@@ -37,13 +49,4 @@ function download({ url, filePath, fileName }) {
 			});
 		});
 	});
-}
-
-(async () => {
-	await download({
-		url: 'https://images.pexels.com/photos/5624248/pexels-photo-5624248.jpeg',
-		filePath: path.resolve(__dirname, '..'),
-		fileName: 'image',
-	});
-	console.log('done');
-})();
+};
